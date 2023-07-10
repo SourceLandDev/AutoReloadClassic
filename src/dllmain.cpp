@@ -21,9 +21,13 @@ void reloadItem(Player& player, int id, int auxValue) {
         if (!itemStack.sameItem(id, auxValue)) {
             continue;
         }
+        if (i < 9) {
+            player.setSelectedSlot(i);
+            return;
+        }
         ItemStack newItemStack = itemStack.clone();
         inventory.setItem(i, ItemStack::EMPTY_ITEM);
-        inventory.setItem(slot, newItemStack);
+        player.setSelectedItem(newItemStack);
         player.sendInventory(true);
         return;
     }
@@ -49,7 +53,7 @@ TInstanceHook(void, "?useItem@Player@@UEAAXAEAVItemStackBase@@W4ItemUseMethod@@_
         Player* player = Global<Level>->getPlayer(uniqueID);
         if (!player) {
             return;
-        }
+}
         reloadItem(*player, id, auxValue);
     });
 }
