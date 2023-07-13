@@ -12,7 +12,7 @@
 #include <llapi/ScheduleAPI.h>
 
 void reloadItem(Player& player, int id, int auxValue) {
-    ActorUniqueID const& uniqueID = player.getUniqueID();
+    ActorUniqueID const& uniqueID = player.getOrCreateUniqueID();
     Schedule::nextTick([uniqueID, id, auxValue]() {
         Player* player = Global<Level>->getPlayer(uniqueID);
         if (!player || !player->getSelectedItem().isNull()) {
