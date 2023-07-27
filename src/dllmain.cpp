@@ -11,34 +11,38 @@
 #include <llapi/GlobalServiceAPI.h>
 #include <llapi/ScheduleAPI.h>
 
-void reloadItem(Player& player, int id, int auxValue) {
+void reloadItem(Player& player, int id, int auxValue, bool isOffhand = false) {
     ActorUniqueID const& uniqueID = player.getOrCreateUniqueID();
-    Schedule::nextTick([uniqueID, id, auxValue]() {
+    Schedule::nextTick([uniqueID, id, auxValue, isOffhand]() {
         Player* player = Global<Level>->getPlayer(uniqueID);
-        if (!player || !player->getSelectedItem().isNull()) {
+        if (!player || !(isOffhand ? player->getOffhandSlot() : player->getSelectedItem()).isNull()) {
             return;
         }
-        int slot = player->getSelectedItemSlot();
         Container& inventory = player->getInventory();
         for (int i = 0; i < inventory.getContainerSize(); ++i) {
-            if (i == slot) {
+            if (!isOffhand && i == player->getSelectedItemSlot()) {
                 continue;
             }
             ItemStack const& itemStack = inventory.getItem(i);
             if (!itemStack.sameItem(id, auxValue)) {
                 continue;
             }
-            if (i < 9) {
+            if (!isOffhand && i < 9) {
                 player->setSelectedSlot(i);
                 return;
             }
             ItemStack newItemStack = itemStack.clone();
             inventory.setItem(i, ItemStack::EMPTY_ITEM);
-            player->setSelectedItem(newItemStack);
+            if (isOffhand) {
+                player->setOffhandSlot(newItemStack);
+            }
+            else {
+                player->setSelectedItem(newItemStack);
+            }
             player->sendInventory(true);
             return;
         }
-    });
+        });
 }
 
 #include <llapi/mc/ItemStackBase.hpp>
@@ -62,5 +66,27 @@ TInstanceHook(bool, "?hurtAndBreak@ItemStackBase@@QEAA_NHPEAVActor@@@Z", ItemSta
         return result;
     }
     reloadItem((Player&)a3, id, auxValue);
+    return result;
+}
+TInstanceHook(bool, "?consumeTotem@Player@@UEAA_NXZ", Player) {
+    int id = -1;
+    int auxValue = -1;
+    const ItemStack& handSlot = getSelectedItem();
+    const ItemStack& offhandSlot = getOffhandSlot();
+    bool isOffhand = false;
+    if (handSlot.getTypeName() == "minecraft:totem_of_undying") {
+        id = handSlot.getId();
+        auxValue = handSlot.getAuxValue();
+    }
+    else if (offhandSlot.getTypeName() == "minecraft:totem_of_undying") {
+        id = offhandSlot.getId();
+        auxValue = offhandSlot.getAuxValue();
+        isOffhand = true;
+    }
+    bool result = original(this);
+    if (!(isOffhand ? offhandSlot.isNull() : handSlot.isNull())) {
+        return result;
+    }
+    reloadItem(*this, id, auxValue, isOffhand);
     return result;
 }
